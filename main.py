@@ -1,82 +1,69 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import sys
-import yaml
-import argparse
-import os.path
+import os
+import logging
 import logging.config
+from typing import Annotated
 
-from app.common import ENV
+import yaml
+import typer
+
 from app.pixsort import PixSorter
 
 
-# ===========================================================
-#  SYMBOLIC CONSTANTS
-# ===========================================================
-HELP = "Rename pix(image and video) files using timestamp information for sorting them. \
-Timestamp can be extracted from: file name, exif (if present) or file stat."
+logger = logging.getLogger(__name__)
+
+app = typer.Typer(
+    help="이미지/동영상 파일을 타임스탬프 기반으로 리네이밍하는 도구",
+    add_completion=False,
+)
 
 
-# ===========================================================
-#  GLOBAL VARIABLES
-# ===========================================================
-logger = None
-
-
-# ===========================================================
-#  MAIN FUNCTION
-# ===========================================================
-if __name__ == "__main__":
-
-    # Parse command-line
-    parser = argparse.ArgumentParser(prog="python3 main.py", description=HELP)
-
-    parser.add_argument('-i', '--in', metavar="IN_DIR", required=True,
-                        dest="in_dir",
-                        help="directory path which contains pix files.")
-
-    parser.add_argument('-r', '--recursive', required=False, default=False,
-                        dest="recursive", action="store_true",
-                        help="recursively traverse sub-directories")
-
-    parser.add_argument('-u', '--uppercase', required=False, default=False,
-                        dest="uppercase", action="store_true", help="rename to uppercase name")
-
-    parser.add_argument('-w', '--workers', required=False, default=1, type=int,
-                        dest="num_workers", help="number of renaming workers")
-
-    parser.add_argument('-a', '--apply', required=False, default=False,
-                        dest="apply", action="store_true",
-                        help="launch renaming workers or just show plan")
-
-    args = parser.parse_args()
-
-    # Set logger
+def _setup_logging():
     if os.path.exists("resources/logging.conf"):
         with open("resources/logging.conf", "r") as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
-            # create log directory if not exists
-            log_dir = os.path.split(config['handlers']['logfile']['filename'])[0]
+        log_dir = os.path.split(config["handlers"]["logfile"]["filename"])[0]
+        if not os.path.exists(log_dir):
+            os.mkdir(log_dir)
 
-            if not os.path.exists(log_dir):
-                os.mkdir(log_dir)
-
-            logging.config.dictConfig(config)
+        logging.config.dictConfig(config)
     else:
         logging.basicConfig(level=logging.INFO)
 
-    logger = logging.getLogger(ENV)
-    logger.info(args)
+
+@app.command("run")
+def run_cmd(
+    in_dir: Annotated[str, typer.Option("--in", "-i", help="이미지/동영상 파일이 있는 디렉터리")],
+    recursive: Annotated[bool, typer.Option("--recursive", "-r", help="서브디렉터리 재귀 탐색")] = False,
+    uppercase: Annotated[bool, typer.Option("--uppercase", "-u", help="대문자로 리네이밍")] = False,
+    num_workers: Annotated[int, typer.Option("--workers", "-w", help="워커 스레드 수 (최대 8)")] = 1,
+    apply: Annotated[bool, typer.Option("--apply", "-a", help="실제 적용 (없으면 preview 모드)")] = False,
+):
+    """이미지/동영상 파일을 타임스탬프 기반으로 리네이밍"""
+    _setup_logging()
+    logger.info(
+        f"in_dir={in_dir}, recursive={recursive}, uppercase={uppercase}, "
+        f"workers={num_workers}, apply={apply}"
+    )
     logger.info("<< Start Pixsort >>")
 
-    # Run pixsort job
     sorter = PixSorter()
-    sorter.set_options(recursive=args.recursive,
-                       uppercase=args.uppercase,
-                       num_workers=args.num_workers,
-                       apply=args.apply)
+    sorter.set_options(
+        recursive=recursive,
+        uppercase=uppercase,
+        num_workers=num_workers,
+        apply=apply,
+    )
+    sorter.run(in_dir)
 
-    sorter.run(args.in_dir)
 
-    sys.exit(0)
+@app.command("gui")
+def gui_cmd():
+    """GUI 모드 실행"""
+    typer.echo("GUI는 추후 지원 예정입니다.")
+
+
+if __name__ == "__main__":
+    app()

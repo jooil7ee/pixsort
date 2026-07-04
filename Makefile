@@ -2,21 +2,19 @@
 # ENV VARS
 # ----------------------------------------------------------
 BASEDIR := $(shell pwd)
-SHELL := /bin/bash
-PYTHON := /usr/bin/python3
-
-# Linter
-FLAKE8_CFG := $(BASEDIR)/flake8.cfg
+SHELL   := /usr/local/bin/bash
 
 # ----------------------------------------------------------
 # ACTIONS
 # ----------------------------------------------------------
-# For application running and testing
 env:
-	@/usr/bin/env pipenv install
+	@uv sync --group dev
 
 lint:
-	@/usr/bin/env pipenv run flake8 --config $(FLAKE8_CFG) .
+	@uv run ruff check .
+
+run:
+	@uv run python main.py $(ARGS)
 
 clean:
 	@rm -f history-*.sh

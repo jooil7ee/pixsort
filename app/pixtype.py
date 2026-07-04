@@ -4,13 +4,11 @@ from enum import Enum
 from dataclasses import dataclass
 from PIL import Image, UnidentifiedImageError
 
-from app.common import ENV
-
 
 # ===========================================================
 # GLOBAL VARIABLES
 # ===========================================================
-logger = logging.getLogger(ENV)
+logger = logging.getLogger(__name__)
 
 
 # ==========================================================
@@ -19,7 +17,7 @@ logger = logging.getLogger(ENV)
 @dataclass
 class PX_CLS:
     """
-    Pix file classes
+    pix 파일 분류
     """
     IMAGE: str = "img"
     VIDEO: str = "mov"
@@ -27,7 +25,7 @@ class PX_CLS:
 
 class PX_TYPE(Enum):
     """
-    Pix file types
+    pix 파일 형식
     """
     UNKNOWN = (None, None)
     JPG = ("jpg", PX_CLS.IMAGE)
@@ -42,11 +40,11 @@ class PX_TYPE(Enum):
 
 
 # ==========================================================
-# CLASS IMPLEMETATIONS
+# CLASS IMPLEMENTATIONS
 # ==========================================================
 class PixTypeMapper:
     """
-    Media type mapper. It maps file extensions to type objects
+    파일 확장자 → 미디어 타입 매핑
     """
     type_map = {
         "jpg": PX_TYPE.JPG,
@@ -63,18 +61,13 @@ class PixTypeMapper:
         raise RuntimeError('%s should not be instantiated' % cls)
 
     @classmethod
-    def map(cls, pix_path) -> object:
-        """
-        Map a given file to media type object
-        """
+    def map(cls, pix_path) -> PX_TYPE:
         try:
             fmt = Image.open(pix_path).format.lower()
-
         except UnidentifiedImageError:
             *_, fmt = pix_path.lower().split(".")
-
         except FileNotFoundError:
-            logger.error(f"File not found: {pix_path}")
+            logger.error(f"파일을 찾을 수 없습니다: {pix_path}")
             return PX_TYPE.UNKNOWN
 
-        return cls.type_map[fmt] if (fmt in cls.type_map) else PX_TYPE.UNKNOWN
+        return cls.type_map.get(fmt, PX_TYPE.UNKNOWN)

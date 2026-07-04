@@ -4,7 +4,11 @@ import logging
 import os.path
 from threading import Lock as WriteLock
 
-from app.common import ENV
+
+# ===========================================================
+# GLOBAL VARIABLES
+# ===========================================================
+logger = logging.getLogger(__name__)
 
 
 # ===========================================================
@@ -22,67 +26,43 @@ fi
 
 """
 
-# ===========================================================
-# GLOBAL VARIABLES
-# ===========================================================
-logger = logging.getLogger(ENV)
-
 
 # ===========================================================
 # CLASS IMPLEMENTATIONS
 # ===========================================================
 class PixHistory:
     """
-    Renaming work history writer
+    리네이밍 이력 기록기 (do/undo 가능한 shell 스크립트 생성)
     """
 
     def __init__(self, history_dir="."):
-        """
-        Initialization
-        """
         if not os.path.exists(history_dir):
             os.mkdir(history_dir)
 
         history_file = "history-%s.sh" % time.strftime("%Y%m%d-%H%M%S", time.localtime())
 
-        # create a history file
         try:
             self.history = open(os.path.join(history_dir, history_file), "w")
         except Exception:
-            logger.error(f"Cannot create a history file at {history_dir}")
+            logger.error(f"히스토리 파일 생성 실패: {history_dir}")
             self.history = open(history_file, "w")
 
-        # write header
         self.history.write(HEADER)
-
-        # create a lock for writing
         self.lock = WriteLock()
 
-        logger.info(f"Start to write history logs to {history_file}")
+        logger.info(f"히스토리 기록 시작: {history_file}")
 
     def close(self):
-        """
-        Close the history file
-        """
-        self.lock.acquire()
-
-        if self.history:
-            self.history.close()
-            self.history = None
-
-        self.lock.release()
+        with self.lock:
+            if self.history:
+                self.history.close()
+                self.history = None
 
     def writeline(self, from_path, to_path):
-        """
-        Write an history line
-        """
-        if self.history:
-            self.lock.acquire()
+        with self.lock:
+            if not self.history:
+                return
             try:
-                # write a history line
                 self.history.write(f"pixwork '{from_path}' '{to_path}'\n")
-
             except Exception:
-                logger.error("Cannot write a history line")
-
-            self.lock.release()
+                logger.error("히스토리 라인 기록 실패")

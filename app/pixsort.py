@@ -5,40 +5,41 @@ import os.path
 import exifread
 from datetime import datetime
 
-from app.common import ENV
 from app.pixfinder import PixFinder
+from app.pixinspector import PixInspector
 from app.pixtype import PX_TYPE, PixTypeMapper
-from app.pixwork import PixWorkerGroup
+from app.pixrenamer import PixRenamer
 from app.pixstamp import STAMP_STYLE, TSINFO_TYPE, PixStamp
 
 
 # ===========================================================
 # GLOBAL VARIABLES
 # ===========================================================
-logger = logging.getLogger(ENV)
+logger = logging.getLogger(__name__)
 
 
 # ===========================================================
 # SYMBOLIC CONSTANTS
 # ===========================================================
-# File name patterns expressed as regular expressions
+# 파일 이름 패턴 (정규식)
 NAME_PATTERNS = (
-    # standard stamp style
+    # 표준 스탬프 형식
     (re.compile(r"^(?:img|mov)_(\d{8})_(\d{6})_(\d{3,6})\.\w+", re.IGNORECASE),
      TSINFO_TYPE.STANDARD),
 
-    # date-and-time based file name (with microseconds)
+    # 날짜/시간 기반 파일명 (마이크로초 포함)
     (re.compile(r"[a-z_]*(\d{8})[-_]?(\d{6})[-_]?(\d{0,3})\w*\.\w+", re.IGNORECASE),
      TSINFO_TYPE.STANDARD),
 
     (re.compile(r"[a-z_]*(\d{8})[-_]?(\d{6})[-_]?(\d{0,3})\W+.*\.\w+", re.IGNORECASE),
      TSINFO_TYPE.STANDARD),
 
-    # timestruct based file name (e.g. macos screenshots)
-    (re.compile(r"[a-z_]*(\d{4})-?(\d{2})-?(\d{2})[ \w]*(\d{1,2})\.(\d{2})\.(\d{2}).*\.\w+", re.IGNORECASE),
+    # 날짜/시간 구조체 형식 (macOS 스크린샷 등)
+    (re.compile(r"[a-z_]*(\d{4})-?(\d{2})-?(\d{2})[ \w]*(\d{1,2})\.(\d{2})\.(\d{2}).*\.\w+",
+                re.IGNORECASE),
      TSINFO_TYPE.TIMESTRUCT),
 
-    # UNIX epoch seconds
+    # UNIX epoch 초
     (re.compile(r"(\d{10})\w*\.\w+", re.IGNORECASE), TSINFO_TYPE.EPOCH_SECS),
 )
 
@@ -48,12 +49,9 @@ NAME_PATTERNS = (
 # ===========================================================
 class PixSorter:
     """
-    Timestamp-based media file sorter
+    타임스탬프 기반 미디어 파일 소터
     """
     def __init__(self):
-        """
-        Initialization
-        """
         self.opts = {
             'style': STAMP_STYLE.STANDARD,
             'num_workers': 1,
@@ -62,87 +60,68 @@ class PixSorter:
             'apply': False,
         }
 
-        # reaming workers
-        self.workers = None
-
     def set_options(self, **kwargs):
-        """
-        Set options: uppercase
-        """
         for (k, v) in kwargs.items():
             self.opts[k] = v
 
     def run(self, in_dir):
         """
-        Rename pix files in a given directory
+        주어진 디렉터리의 pix 파일 리네이밍
         """
         if not os.path.exists(in_dir):
-            logger.error(f"Input directory does not exist: {in_dir}")
+            logger.error(f"입력 디렉터리가 존재하지 않습니다: {in_dir}")
             return
 
-        # Create renaming workers
-        self.workers = PixWorkerGroup(self.opts['num_workers'])
+        num_workers = self.opts['num_workers']
 
-        # Scan and process pix files one by one
-        finder = PixFinder()
-        finder.find(in_dir, self.opts['recursive'])
+        # 1단계: 파일 탐색 (단일 쓰레드)
+        pix_files = PixFinder().find(in_dir, self.opts['recursive'])
+        logger.info(f"{in_dir}: {len(pix_files)}개 파일 검사 중 (workers={num_workers})")
 
-        logger.info(f"Inspect pix files in {in_dir}")
+        # 2단계: 타임스탬프 검사 (병렬)
+        results = PixInspector(num_workers).run(pix_files, self.__inspect)
 
-        while not finder.empty():
-            x = finder.pop()
+        # 3단계: 리네이밍 (병렬)
+        workers = PixRenamer(num_workers)
+        for stamp, path in results:
+            workers.add_work(stamp, path)
+        workers.start(self.opts['uppercase'], self.opts['apply'])
+        workers.close()
 
-            # inspect each file and create a stamp for it
-            stamp = self.__inspect(x)
+        logger.info("완료")
 
-            if stamp is not None:
-                logger.info(f" * {stamp} ({stamp.desc}) <-- {os.path.split(x)[-1]}")
-                self.workers.add_work(stamp, x)
-
-        # Start renaming works
-        self.workers.start(self.opts['uppercase'], self.opts['apply'])
-
-        # clean up
-        self.workers.close()
-
-        logger.info("Complete")
-
-    def __inspect(self, pix_path) -> str:
+    def __inspect(self, pix_path) -> "PixStamp | None":
         """
-        Do pattern matching and extract timestamp information. Rules are
-         - a) try to extract from file name
-         - b) if not, try to extract from exif (for JPEG and TIFF)
-         - c) if not, extract from file stat (for PNG files)
+        파일에서 타임스탬프 정보를 추출한다.
+         - R1: 파일명 패턴 매칭
+         - R2: EXIF 정보 (JPEG, TIFF)
+         - R3: 파일 수정 시간 (st_mtime)
         """
         pix_type = PixTypeMapper.map(pix_path)
         *_, pix_name = os.path.split(pix_path)
 
-        # extract timestamp information to create pixstamp
         if pix_type is not PX_TYPE.UNKNOWN:
             style = self.opts['style'].fmt
 
-            # rule1: match with file name patterns
+            # R1: 파일명 패턴
             for p, tsi_type in NAME_PATTERNS:
-                is_matched = p.match(pix_name)
-                if is_matched:
-                    return PixStamp.new(style, tsi_type, is_matched.groups(), pix_type, "R1")
+                m = p.match(pix_name)
+                if m:
+                    return PixStamp.new(style, tsi_type, m.groups(), pix_type, "R1")
 
-            # rule2: check exif information
+            # R2: EXIF 정보
             if pix_type in [PX_TYPE.JPG, PX_TYPE.TIF]:
-                exif = exifread.process_file(open(pix_path, "rb"))
-                if "EXIF DateTimeOriginal" in exif.keys():
-                    tsi_type = TSINFO_TYPE.DATETIME_OBJ
+                with open(pix_path, "rb") as f:
+                    exif = exifread.process_file(f)
+                if "EXIF DateTimeOriginal" in exif:
                     dt_obj = datetime.strptime(
                         exif["EXIF DateTimeOriginal"].values, "%Y:%m:%d %H:%M:%S")
-                    return PixStamp.new(style, tsi_type, dt_obj, pix_type, "R2")
+                    return PixStamp.new(style, TSINFO_TYPE.DATETIME_OBJ, dt_obj, pix_type, "R2")
 
-            # rule3: using file stats
+            # R3: 파일 수정 시간
             stat = os.stat(pix_path)
-            if 0 < stat.st_mtime:
-                tsi_type = TSINFO_TYPE.EPOCH_SECS
-                return PixStamp.new(style, tsi_type, int(stat.st_mtime), pix_type, "R3")
+            if stat.st_mtime > 0:
+                return PixStamp.new(style, TSINFO_TYPE.EPOCH_SECS, int(stat.st_mtime), pix_type, "R3")
 
-        # failed to extract timestamp information
-        logger.error(f"Inspection failed: {pix_name}")
-
+        logger.error(f"타임스탬프 추출 실패: {pix_name}")
         return None

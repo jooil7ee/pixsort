@@ -5,19 +5,17 @@ on:
     paths: "**.py"
 
 jobs:
-  flake8-lint:
+  ruff-lint:
     runs-on: ubuntu-latest
     name: Lint
     steps:
       - name: Check out source repository
-        uses: actions/checkout@v3
-      - name: Set up Python environment
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.9"
-      - name: Lint with flake8
-        uses: py-actions/flake8@v2
-        with:
-          ignore: "E203,E501"
-          exclude: "Makefile,resources"
-          max-line-length: "100"
+        uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Set up Python
+        run: uv python install
+      - name: Install dependencies
+        run: uv sync --group dev
+      - name: Lint with ruff
+        run: uv run ruff check .

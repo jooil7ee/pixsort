@@ -1,65 +1,25 @@
 # -*- coding: utf-8 -*-
-import glob
 import os
-from collections import deque
 
 
 # ==========================================================
-# CLASS IMPLEMETATIONS
+# CLASS IMPLEMENTATIONS
 # ==========================================================
 class PixFinder:
     """
-    Find pix files in a given directory recursively.
+    디렉터리에서 pix 파일 경로를 수집
     """
-    def __init__(self):
-        """
-        Initialization
-        """
-        self.files = None
-        self.size = 0
+    def find(self, path, recursive=False) -> list[str]:
+        files = []
+        self._scan(path, recursive, files)
+        return files
 
-    def empty(self):
-        """
-        Check if queue is empty or not
-        """
-        return True if (not self.files) else False
-
-    def pop(self):
-        """
-        Pop an pix file path from the queue.
-        """
-        if self.files:
-            self.size -= 1
-            return self.files.popleft()
-
-        return None
-
-    def find(self, path, recursive=False) -> object:
-        """
-        Find all pix files in a given directory recursively.
-        """
-        self.files = deque()
-        self.size = 0
-
-        files = glob.glob(os.path.join(path, "*"))
-
-        for x in files:
-            if os.path.isdir(x):
-                if recursive:
-                    self.__find_subdir(x)
-            else:
-                self.files.append(x)
-                self.size += 1
-
-    def __find_subdir(self, path):
-        """
-        Scan a given directory.
-        """
-        files = glob.glob(os.path.join(path, "*"))
-
-        for x in files:
-            if os.path.isdir(x):
-                self.__find_subdir(x)
-            else:
-                self.files.append(x)
-                self.size += 1
+    def _scan(self, path, recursive, files):
+        # DirEntry는 is_dir() 결과를 캐싱해서 stat() 재호출 없음
+        with os.scandir(path) as it:
+            for entry in it:
+                if entry.is_dir():
+                    if recursive:
+                        self._scan(entry.path, recursive, files)
+                else:
+                    files.append(entry.path)

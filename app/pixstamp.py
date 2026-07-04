@@ -3,13 +3,11 @@ import logging
 from datetime import datetime
 from enum import Enum
 
-from app.common import ENV
-
 
 # ===========================================================
 # GLOBAL VARIABLES
 # ===========================================================
-logger = logging.getLogger(ENV)
+logger = logging.getLogger(__name__)
 
 
 # ===========================================================
@@ -17,21 +15,21 @@ logger = logging.getLogger(ENV)
 # ===========================================================
 class TSINFO_TYPE(Enum):
     """
-    Timestamp information types
+    타임스탬프 정보 유형
     """
-    UNKNOWN = 0         # unknown type
-    STANDARD = 1        # date and time: (yyyymmdd, HHMMSS, msec)
-    TIMESTRUCT = 2      # data and time: (yyyy, mm, dd, HH, MM, SS)
-    EPOCH_SECS = 3      # epoch seconds
-    DATETIME_OBJ = 4    # datetime object
+    UNKNOWN = 0         # 알 수 없음
+    STANDARD = 1        # 날짜/시간: (yyyymmdd, HHMMSS, msec)
+    TIMESTRUCT = 2      # 날짜/시간: (yyyy, mm, dd, HH, MM, SS)
+    EPOCH_SECS = 3      # UNIX epoch 초
+    DATETIME_OBJ = 4    # datetime 객체
 
 
 class STAMP_STYLE(Enum):
     """
-    Pix stamp styles
+    Pix 스탬프 출력 형식
     """
-    STANDARD = "%Y%m%d_%H%M%S_%f"   # date and time with class
-    EPOCH_SECS = "%s_%f"            # epoch seconds
+    STANDARD = "%Y%m%d_%H%M%S_%f"
+    EPOCH_SECS = "%s_%f"
 
     def __init__(self, fmt):
         self.fmt = fmt
@@ -42,7 +40,7 @@ class STAMP_STYLE(Enum):
 # ===========================================================
 class PixStamp:
     """
-    Pixstamp for the pix file
+    pix 파일의 타임스탬프 스탬프
     """
     def __init__(self, fmt, stamp, desc=""):
         self.fmt = fmt
@@ -53,11 +51,10 @@ class PixStamp:
         return f"{self.fmt}/{self.stamp}"
 
     @staticmethod
-    def new(style, tsi_type, tsi_data, pix_type, desc="") -> str:
+    def new(style, tsi_type, tsi_data, pix_type, desc="") -> "PixStamp | None":
         """
-        Create a pixstamp object with a given timstamp information
+        타임스탬프 정보로 PixStamp 객체 생성
         """
-        # construct datatime object first
         dt = None
 
         try:
@@ -70,55 +67,41 @@ class PixStamp:
                 dt = datetime(*list(map(int, tsi_data)))
 
             elif TSINFO_TYPE.EPOCH_SECS == tsi_type:
-                if isinstance(tsi_data, list) or isinstance(tsi_data, tuple):
-                    sec_s, *_ = tsi_data
-                else:
-                    sec_s = tsi_data
-
+                sec_s = tsi_data[0] if isinstance(tsi_data, (list, tuple)) else tsi_data
                 dt = datetime.fromtimestamp(int(sec_s))
 
             elif TSINFO_TYPE.DATETIME_OBJ == tsi_type:
                 dt = tsi_data
 
             else:
-                logger.error(f"Unsupported TSI type: {tsi_type}")
+                logger.error(f"지원하지 않는 TSI 유형: {tsi_type}")
 
-            # create pixstamp object using the datatime object
             if dt is not None:
                 stamp_s = "%s_%s" % (pix_type.cls, dt.strftime(style)[:-3])
                 return PixStamp(pix_type.fmt, stamp_s, desc)
 
         except ValueError:
-            logger.error(f"Invalid TSI data: {tsi_data}")
+            logger.error(f"유효하지 않은 TSI 데이터: {tsi_data}")
 
         return None
 
 
 class PixStampGroup:
     """
-    Pix stamp group
+    동일 타임스탬프를 가진 pix 파일 그룹
     """
     def __init__(self, fmt, stamp, path=None):
         self.fmt = fmt
         self.stamp = stamp
-        self.paths = [path,] if path else []
+        self.paths = [path] if path else []
 
     def key(self):
-        """
-        Return stamp group key
-        """
         return f"{self.fmt}/{self.stamp}"
 
     def add_path(self, path):
-        """
-        Add a new path to this group
-        """
         self.paths.append(path)
 
     def sort_paths(self):
-        """
-        Sort paths in the list
-        """
         self.paths.sort()
 
     def __str__(self):
