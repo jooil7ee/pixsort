@@ -62,7 +62,9 @@ def run_cmd(
 @app.command("gui")
 def gui_cmd():
     """GUI 모드 실행"""
-    typer.echo("GUI는 추후 지원 예정입니다.")
+    from app.pixgui import launch
+
+    launch()
 
 
 if __name__ == "__main__":
