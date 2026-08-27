@@ -40,12 +40,13 @@ def run_cmd(
     uppercase: Annotated[bool, typer.Option("--uppercase", "-u", help="대문자로 리네이밍")] = False,
     num_workers: Annotated[int, typer.Option("--workers", "-w", help="워커 스레드 수 (최대 8)")] = 1,
     apply: Annotated[bool, typer.Option("--apply", "-a", help="실제 적용 (없으면 preview 모드)")] = False,
+    suffix: Annotated[str, typer.Option("--suffix", "-s", help="파일명 끝(확장자 앞)에 추가할 접미사")] = "",
 ):
     """이미지/동영상 파일을 타임스탬프 기반으로 리네이밍"""
     _setup_logging()
     logger.info(
         f"in_dir={in_dir}, recursive={recursive}, uppercase={uppercase}, "
-        f"workers={num_workers}, apply={apply}"
+        f"workers={num_workers}, apply={apply}, suffix={suffix}"
     )
     logger.info("<< Start Pixsort >>")
 
@@ -55,6 +56,7 @@ def run_cmd(
         uppercase=uppercase,
         num_workers=num_workers,
         apply=apply,
+        suffix=suffix,
     )
     sorter.run(in_dir)
 

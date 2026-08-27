@@ -58,6 +58,7 @@ class PixSorter:
             'recursive': False,
             'uppercase': False,
             'apply': False,
+            'suffix': '',
         }
 
     def set_options(self, **kwargs):
@@ -85,7 +86,7 @@ class PixSorter:
         workers = PixRenamer(num_workers)
         for stamp, path in results:
             workers.add_work(stamp, path)
-        workers.start(self.opts['uppercase'], self.opts['apply'])
+        workers.start(self.opts['uppercase'], self.opts['apply'], self.opts['suffix'])
         workers.close()
 
         logger.info("완료")

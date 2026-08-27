@@ -90,6 +90,10 @@ class PixGuiApp(ctk.CTk):
         self.workers_var = ctk.StringVar(value="4")
         ctk.CTkEntry(opt_frame, textvariable=self.workers_var, width=50).pack(side="left")
 
+        ctk.CTkLabel(opt_frame, text="접미사").pack(side="left", padx=(12, 4))
+        self.suffix_var = ctk.StringVar(value="")
+        ctk.CTkEntry(opt_frame, textvariable=self.suffix_var, width=100).pack(side="left")
+
         # 실행 버튼
         run_frame = ctk.CTkFrame(self)
         run_frame.pack(fill="x", padx=12, pady=6)
@@ -135,12 +139,15 @@ class PixGuiApp(ctk.CTk):
 
         self.worker = threading.Thread(
             target=self._run_sorter,
-            args=(in_dir, self.recursive_var.get(), self.uppercase_var.get(), num_workers, apply),
+            args=(
+                in_dir, self.recursive_var.get(), self.uppercase_var.get(),
+                num_workers, apply, self.suffix_var.get(),
+            ),
             daemon=True,
         )
         self.worker.start()
 
-    def _run_sorter(self, in_dir, recursive, uppercase, num_workers, apply):
+    def _run_sorter(self, in_dir, recursive, uppercase, num_workers, apply, suffix):
         """백그라운드 스레드에서 PixSorter 실행. 로그/print를 큐로 리다이렉트."""
         handler = _QueueLogHandler(self.out_queue)
         handler.setFormatter(logging.Formatter("%(message)s"))
@@ -158,6 +165,7 @@ class PixGuiApp(ctk.CTk):
                 uppercase=uppercase,
                 num_workers=num_workers,
                 apply=apply,
+                suffix=suffix,
             )
             sorter.run(in_dir)
         except Exception as e:

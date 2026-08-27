@@ -77,7 +77,7 @@ class PixRenamer:
         psg.add_path(path)
         return psg
 
-    def start(self, uppercase, apply=False):
+    def start(self, uppercase, apply=False, suffix=""):
         """
         워커 스레드 시작
         """
@@ -91,7 +91,9 @@ class PixRenamer:
 
         workers = []
         for i in range(self.num_workers):
-            worker = Thread(target=target, args=(i, self.workq[i], self.history, uppercase))
+            worker = Thread(
+                target=target, args=(i, self.workq[i], self.history, uppercase, suffix)
+            )
             workers.append(worker)
             worker.start()
 
@@ -103,7 +105,7 @@ class PixRenamer:
             self.history.close()
 
     @staticmethod
-    def __process(tid, queue, history, uppercase):
+    def __process(tid, queue, history, uppercase, suffix=""):
         """
         실제 리네이밍 수행
         """
@@ -113,7 +115,7 @@ class PixRenamer:
 
             for seq, from_path in enumerate(psg.paths):
                 base, x = os.path.split(from_path)
-                y = "%s%03d.%s" % (psg.stamp, seq, psg.fmt)
+                y = "%s%03d%s.%s" % (psg.stamp, seq, suffix, psg.fmt)
 
                 if uppercase:
                     y = y.upper()
@@ -127,7 +129,7 @@ class PixRenamer:
                     history.writeline(from_path, to_path)
 
     @staticmethod
-    def __preview(tid, queue, history, uppercase):
+    def __preview(tid, queue, history, uppercase, suffix=""):
         """
         리네이밍 미리보기 (실제 적용 없음)
         """
@@ -137,7 +139,7 @@ class PixRenamer:
 
             for seq, from_path in enumerate(psg.paths):
                 base, x = os.path.split(from_path)
-                y = "%s%03d.%s" % (psg.stamp, seq, psg.fmt)
+                y = "%s%03d%s.%s" % (psg.stamp, seq, suffix, psg.fmt)
 
                 if uppercase:
                     y = y.upper()

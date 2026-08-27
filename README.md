@@ -13,7 +13,7 @@ Take timestamp information from pix(image and video) files, and rename them by u
 
 ### CLI
 ```bash
-./pixsort run -i <디렉터리> [-r] [-u] [-w N] [-a]
+./pixsort run -i <디렉터리> [-r] [-u] [-w N] [-a] [-s <접미사>]
 ```
 
 옵션:
@@ -22,8 +22,13 @@ Take timestamp information from pix(image and video) files, and rename them by u
 - `-u, --uppercase`: 대문자로 리네이밍
 - `-w, --workers`: 워커 스레드 수 (최대 8)
 - `-a, --apply`: 실제 적용 (없으면 preview 모드)
+- `-s, --suffix`: 파일명 끝(확장자 앞)에 추가할 접미사
 
 `-a` 없이 실행하면 preview 모드로 동작하며, 실제 적용 시 실행 디렉터리에 `history-<타임스탬프>.sh` 이력 스크립트가 생성되어 되돌릴 수 있습니다 (`bash history-*.sh undo`).
+
+리네이밍 결과 파일명 형식:
+- `-s` 없음: `IMG_20260827_201623_000001.jpg`
+- `-s <SUFFIX>`: `IMG_20260827_201623_000001<SUFFIX>.jpg`
 
 ### GUI
 ```bash
@@ -35,4 +40,4 @@ Windows 11에서는 `pixsort` bash 스크립트 대신 `pixsort-gui.bat` 파일�
 pixsort-gui.bat
 ```
 
-CustomTkinter 기반 창이 열립니다. 대상 디렉터리를 선택하고 옵션(재귀 탐색, 대문자 변환, 워커 수)을 지정한 뒤 "미리보기" 또는 "적용" 버튼을 누르면, CLI와 동일한 처리 결과가 창 안의 콘솔 영역에 표시됩니다.
+CustomTkinter 기반 창이 열립니다. 대상 디렉터리를 선택하고 옵션(재귀 탐색, 대문자 변환, 워커 수, 접미사)을 지정한 뒤 "미리보기" 또는 "적용" 버튼을 누르면, CLI와 동일한 처리 결과가 창 안의 콘솔 영역에 표시됩니다.
