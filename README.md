@@ -29,4 +29,10 @@ Take timestamp information from pix(image and video) files, and rename them by u
 ```bash
 ./pixsort gui
 ```
+
+Windows 11에서는 `pixsort` bash 스크립트 대신 `pixsort-gui.bat` 파일을 더블클릭하거나 다음과 같이 실행합니다.
+```
+pixsort-gui.bat
+```
+
 CustomTkinter 기반 창이 열립니다. 대상 디렉터리를 선택하고 옵션(재귀 탐색, 대문자 변환, 워커 수)을 지정한 뒤 "미리보기" 또는 "적용" 버튼을 누르면, CLI와 동일한 처리 결과가 창 안의 콘솔 영역에 표시됩니다.
